@@ -23,14 +23,27 @@ echo ""
 # Переход в директорию скрипта
 cd "$(dirname "$0")"
 
-# Проверка наличия Python
-if ! command -v python3 &> /dev/null; then
+# Проверка наличия Python (несколько способов для разных сред)
+PYTHON_CMD=""
+
+# Способ 1: command -v
+if command -v python3 &> /dev/null; then
+    PYTHON_CMD="python3"
+# Способ 2: which
+elif which python3 &> /dev/null; then
+    PYTHON_CMD="$(which python3)"
+# Способ 3: прямая проверка стандартных путей
+elif [ -x "/usr/bin/python3" ]; then
+    PYTHON_CMD="/usr/bin/python3"
+elif [ -x "/usr/local/bin/python3" ]; then
+    PYTHON_CMD="/usr/local/bin/python3"
+fi
+
+if [ -z "$PYTHON_CMD" ]; then
     echo -e "${RED}Ошибка: Python 3 не найден${NC}"
     echo "Установите Python 3.8 или выше"
     exit 1
 fi
-
-PYTHON_CMD="python3"
 
 # Проверка версии Python
 PYTHON_VERSION=$($PYTHON_CMD --version 2>&1 | cut -d' ' -f2 | cut -d'.' -f1,2)
@@ -67,31 +80,38 @@ echo ""
 
 export BASE_URL="${BASE_URL}"
 
-# Запуск с подробным выводом
+# Запуск с подробным выводом и генерацией отчёта
 pytest tests/test_calculator.py \
     -v \
     --tb=short \
-    --browser=chromium || TEST_EXIT_CODE=$?
+    --browser=chromium \
+    --html=test-report.html \
+    --self-contained-html \
+    -rs || TEST_EXIT_CODE=$?
 
 # Сохранение кода выхода
 TEST_EXIT_CODE=${TEST_EXIT_CODE:-$?}
 
 echo ""
 echo "=============================================="
-echo "РЕЗУЛЬТАТ"
+echo "ИТОГОВЫЙ ОТЧЁТ"
 echo "=============================================="
 
 if [ $TEST_EXIT_CODE -eq 0 ]; then
-    echo -e "${GREEN}RESULT: PASSED${NC}"
-    echo "Все тесты пройдены успешно!"
+    echo -e "${GREEN}✓ ВСЕ ТЕСТЫ ПРОЙДЕНЫ${NC}"
+    echo "Статус: PASSED"
 else
-    echo -e "${RED}RESULT: FAILED${NC}"
-    echo "Некоторые тесты не прошли. Проверьте вывод выше."
+    echo -e "${RED}✗ ТЕСТЫ НЕ ПРОЙДЕНЫ${NC}"
+    echo "Статус: FAILED"
+    echo ""
+    echo "Сводка ошибок:"
+    echo "----------------------------------------------"
 fi
 
 echo ""
 echo "Код выхода: ${TEST_EXIT_CODE}"
-echo "Отчёт: test-report.html"
+echo "Полный отчёт: test-report.html"
+echo "=============================================="
 echo ""
 
 # Деактивация виртуального окружения
